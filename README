@@ -1,0 +1,184 @@
+xen283
+shay.tam
+
+Differences between the initial UML and the Recent one:
+- AvatarState (ENUM)
+When implementing the Avatar class it became obvious that
+it is important to track the previous and current states of the avatar. 
+(For example: Is the avatar in flight and we should decrease its energy?
+ Was the avatar idle and now we need to add to its velocity?) 
+The simplest way to solve it was using and ENUM.
+- ImageManager (Class)
+As the name implies, a class for managing the reading of the images.
+ At first we assumed each class will read and associate the images it needs with a specific reader,
+However, after we started implementing we saw the programm will be more clear and readable if we created a
+dedicated class that will take care of the process of reading the images from the memory.
+- CreateAnimations (Method in Avatar)
+We needed a method that creates and saves animation renderables corresponding  to the avatar movements.
+Only upon implementing it we realised it needed to be public. Only the static method "createAvatar" 
+receives and ImageReader that is used to create renderables. 
+It forced the CreateAnimations to be public and static as well.
+- Bonuses: 
+Didn't plan them ahead of time because we weren't sure if 
+we will implement them.
+- FloatCounter - A counter for the avatar energy
+- NumericEnergyCounter - Numerically represents the energy of the avatar.
+- MemoryGameManager+MemoryGameCard - Manages the memory of the games
+- Background music
+
+
+-------------------------------------------------------------------------------------------------------------
+
+Making the world endless:
+The main idea dividing the game into chunks. 
+In each moment there will be up to two chunks that the game has to keep track of.
+(Where trees, terrain and the avatar will be). We created three arrays, "main" "right", "left"
+that keep track of the ranges of the chunks.
+In each moment the avatar is in the main chunk. When he
+comes close* to the left (or right) edge, we create the  
+left (or right) chunk.
+Each time the avatar migrates to the left (or right)
+chunk, we delete the right (or left) chunk, and renaming the current chunk to be the main one.
+We wanted to keep the world the same, so that when the avatar went far away from a certain spot and
+ then later returned to it, the terrain and the trees will be the same.
+So for each game run we created a seed. The metods that create the terrain and the trees,
+ uses the seed and the current coordinates when deciding on the height of the ground and the trees.
+ That way the game will look the same when revisited.
+
+
+* we set a fixed margin for each chunk, so that the path (the next chunk) of the avatar 
+will not be created the moment he crosses to the next chunk, but earlier.
+This creates a smoother game play.
+
+-------------------------------------------------------------------------------------------------------------
+
+Creating the trees package:
+Consists of two classes Trees, and Leaf.
+Trees:
+The mainresponsibility of the class is to create trees in a certain range.
+The main two functions of this class are:
+1. static public method createInRange that creates trees in a given range. 
+2. a private function createTree that creates a singles tree 
+(and is called by the function createInRange)
+This function creates the trunk of the tree and its leaves and add them to the game.
+
+We decided not to create a dedicated class to the trunk because it does not gives us any advantage,
+ as the trunk as a whole doesn't have a special functionality.
+That is why in the function that creates a single tree after getting a random tree height,
+we created the trunk as a seperate blocks stacked on each other and then added the leaves
+ according to the trunk's placement.
+To create the leaves of the tree we called the static method createFoliage in the class Leaf. 
+Basically, the class Trees contains different objects that are necessary to create a tree,
+ but its as a whole does not have any behaviour.
+The trunk acts like a trunk, the trees as leaves, and the and the object of type Tress 
+acts as a factory
+ for creating those objects.
+
+Leaf:
+The main functions of this class:
+1. Static public method createFoliage that created foliage according to the coordinates and size
+ it receives as an input.
+2. fadeOut, death and life functions that are responsible for the life cycle of the leaf.
+3. Functions that are connected to the bonus memory game (we will elaborate about them in the bonus
+ section down bellow)
+
+Unlike other blocks we used in the game, like terrain and trunk blocks, a leaf needs to fall of,
+and change its behaviour according to its life cycle. In other words - he needs a complicated 
+functionality that is unique 
+to it, so we saw the need to create a seperate class that represents leaves, following the principle of encapsulation.
+We decided to create a class for a single leave and not for a group of them,
+ because each leave has field like life duration and screen placement, that is different from leaf to leaf. 
+Again, as the case with the trunk, the group of the leaves has no speacial charachteristic, 
+there is not difference between on or other group of leaves.
+
+
+-------------------------------------------------------------------------------------------------------------
+
+Desgin Decisions:
+- Energy display
+We wanted to display the energy of the avatar on the screen.
+Like we did in previous excersices in the course, we we wanted to create a Counter object and display it
+using a graphical object.
+the problem we ran into was that we wanted to decrease the enrgy by 0.5 in each frame, but the default
+counter in danogl library is an integer counter.
+We considered 3 solutions:
+* Using danogl.Counter and also a float member which will hold the energy, update them both together
+  and display the float energy value.
+* Using danogl.Counter and count from 0 to 200,  each frame decrease the value by 1, and when displaying
+  the value divided by 2.
+* Creating a custom Counter class which resembles in structure the danogl.Counter, BUT counts in floats, and
+  round the value when displaying it.
+
+We chose the third option.
+The first option is a redundent duplication of code, the second option can cause problems if we would like to
+change the maximal energy bound
+or the amount of energy being decreased in each frame, and might get into complicated calculations when
+wanting to display this float as int.
+
+- Ground height
+Some of the classes, like Tree and Leaf, has to get information from the ground they are on, like the ground
+height, for their creation and update.
+At first, we thought to just send each of these classes the Terrain object created for the game, so they'll
+have access to everything they need.
+After some more thought we realized this solution will create a non-necessary dependency, because all these
+classes really need is the groundHeightAt
+function. So we solved the problem using a functional interface: we sent the classes constructos the height
+function of terrain as argument (Function<Float, Float> groundHeightAt ).
+
+- Reading Images
+At first we assumed each class will read the images it needs and load them itself, but after we started
+implementing we saw that writing the paths of the images hardcoded in the code looks long and busy and makes
+you scroll a lot to get to the game logic, especially when creating animations.
+In addition, the loading image logic was similar between classes, so in order to get rid of code duplications
+and create more readable code, we decided to create a designated class - ImagesManager, which will hold
+all the images paths needed for the game and will handle reading the images from the disc.
+
+- Creating foliage
+At first, the function which creates foliage was located inside the Tree class, but we realized that creating
+a group of leaves together is logically more suitable in the Leaf class,
+just like creating a group of terrain blocks is a function of the Terrain class and creating a group of trees
+id a fuction of the Tree class.
+That way it also matches the appearance of leaves in the real world - groups of leaves don't appear only on
+trees, but on bushes as well, so it is more reasonable for this function to be part of the Leaf class.
+
+-------------------------------------------------------------------------------------------------------------
+Bonuses:
+- Energy display
+We defines two new classes:
+1. FloatCounter (the decisions on why&how we implemented this class were explained in the Desgin Decisions
+   part above).
+2. NumericEnergyCounter - represents a graphical object. It receives a FloatCounter and displays its value on
+   the screen.
+
+- Background music
+We added background music to the game using the soundReader in the PepseGameManager.
+
+- Make leaf fall on click
+A left click on a leaf leads to its immediate fall.
+In order to implement this, we override the onMouseAction function in the Leaf class and added the needed
+functionality.
+
+- Memory game
+We added the option to play a memory game in which the leaves on the trees are the game cards.
+game explained:
+A leaf may contain a game card image.
+A right click on a leaf will cause:
+If the leaf doesn't contain a game card - the leaf will perform a spin.
+If the leaf does contain a game card - the game card image will get displayed.
+another right click on that leaf will hide the game card and will display the default leaf renderable again
+(in our case - the green block).
+Only 2 game cards are allowed to be displayed In each give moment.
+If the user displayed the game card on 2 leaves but they don't match (different images on the cards), both of
+the game cards will get automatically turned over (=hidden).
+If the user displayed the game card on 2 leaves and they do match, an animation that represents a successfull
+match will get displayed (in our case - fireworks), and both of the leaves will fall off the tree, their game
+card image will get deleted (they will become leaves which spins upon click), and they'll keep with their
+regular life cycle.
+
+implementation:
+We created a MemoryGameCard interface which the Leaf class implements so we can treat it as a game card.
+(using Polymorphism ew could address other objects in the game as game cards like terrain blocks, etc.)
+We created a MemoryGameManager class which responsible for the logic of the memory game, it check when game
+cards match, when they don't and there is a need to turn them over, and holds the match animation.
+This class inhertis from GameObject in order to be able to display the animation on the screen.
+
